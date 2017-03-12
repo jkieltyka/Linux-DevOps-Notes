@@ -1,8 +1,8 @@
-This repository contains my notes on:\n
-1. General Linux\n
-2. RedHat Certified Administrator Coursework\n
-3. OpenStack\n
-4. Ansible\n
-5. Jenkins\n
-6. Docker\n
-7. Kubernetes\n
+This repository contains my notes on:<br>
+1. General Linux<br>
+2. RedHat Certified Administrator Coursework<br>
+3. OpenStack<br>
+4. Ansible<br>
+5. Jenkins<br>
+6. Docker<br>
+7. Kubernetes<br>
