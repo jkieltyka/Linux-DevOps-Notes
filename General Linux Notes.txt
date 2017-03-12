@@ -1,0 +1,222 @@
+Linux Academy Server7824Jmk6
+
+user password change
+====================
+passwd
+su -
+vncpasswd
+
+Ubuntu package managemnt
+=============================
+apt-get install
+apt-cache search
+apt-get remove
+apt-get autoremove
+apt-get dist-upgrade
+apt-get update
+apt-get -f upgrade (gets dependancies previously errored)
+dpkg -i package.deb
+dpkg --get-selections (shows all installed packages)
+dpkg --remove packagename (leaves configuration files)
+dpkg --purge dropbox
+
+Centos package management
+=========================
+yum remove package
+rpm - ihv package.rpm (i for install h shows progress v adds verbosity)
+whereis package (shows all package source locations)
+rpm -q package (queries package for the package name)
+rpm -qi package (shows much more package information)
+rpm -ql package (locates location of package files)
+rpm -e package (uninstalls the rpm package)
+yum repo locations are found at /etc/yum.repos.d/
+yum update (updates all repositories)
+yum search packagename
+yum check-update packagename (checks for package update)
+yum upgrade (checks for packages that may need updates)
+yum deplist packagename (shows package dependancies)
+yum clean packages/all (cleans install files from package installs)
+
+
+Linux Commands
+===============================
+ls -p (shows ending / if a folder)
+touch filename (creates files)
+ls -R (recursively shows whats in folders)
+$PATH (linux looks for executables in path variable only, it does not look at current dir)
+pwd (current directory)
+./executable (run form current directory)
+halt (shuts down computer)
+init 0 (shutdowns)
+init 6 (restarts)
+shutdown -c (cancels shutdown)
+su username (changes account)
+env (shows environment variables)
+top (shows current processes)
+which (shows where something is located)
+whoami (shows who is logged in as)
+netstat (shows ports and status)
+route (shows current routes)
+ifconfig (shows interfaces)
+ip addr (shows ip addresses)
+uname -s (shows system infor such as linux version)
+export env_variable (inserts new env variable value, remember no $)
+.file_name (typicalls are configuration files)
+PATH=$PATH:directory(appends to environment variable)
+export variable (exports to all users)
+vim .bash_profile (add to path to make path persistent)
+variable=value (creates a user defined variable, export to make other user use these)
+ls *.txt (wildcard delimiter)
+ls [letter] (looks for files with this letter)
+ls letter[option letters] (looks for a file with the first letter plus one of the options)
+"" allows special meansing
+'' turns off special meanings
+
+function information and help
+=====================================================
+whatis function (shows what man sections are convered)
+man -k word(searchs for word references in any man page)
+man 5 function (shows section 5 of a functions man page)
+man less (allows reading of one page at a time)
+info function (provides a better man page with hyperlink support)
+find /usr/share/doc/ -name "*whatyourlookingfor*"
+whereis (same as locate but does not look at user directories)
+ls -R | more (allows paging of output)
+mkdir .test (creates a hidden folder)
+
+MAN SECTIONS
+========================
+1: NAME (name of command used by whatis)
+
+File manipulation
+========================================================
+mv filename newfilename (renames files)
+rm -rf directory (deltes all contents and a directory)
+touch can update time stamp of a directory
+
+TAR/compression creation
+================================
+tar -cr example.tar directory (creates tar of directory/s or file/s)
+tar -xf example.tar (extracts a tar)
+gzip (creates a gz compressed files)
+gunzip (undoes a gz compression)
+tar -zcf (creates a gzip on files)
+tar -jcp (creates a bzip on files)
+
+search with grep
+====================
+grep pattern filename (returns anything matching the pattern in the file)
+-i (insensitive match of the pattern)
+
+cut command to return fields from text 
+cut -d" " -fNumber file (returns Number field of file using delimiter of space)
+
+redirect
+======================================
+
+command > filename (puts output into a file)
+using 1> will redirect standardout 2> will rediect standard error
+>> appends rather then replaces
+
+command < input_text_or_file (sends file to command for input)
+
+sh scripting
+=======================================
+#!/bin/bash (shebang: tells the script what shell to use)
+chmod +x script.sh (allows the script to be executed)
+for
+if condition then 
+else
+fi (ends if condition)
+echo
+exit
+&& (if a FUNCTION OPERATES CORRECTLY THE NEXT COMMAND WILL RUN)
+|| (if a FUNCTION OPERATES INCORRECTLY THE NEXT COMMAND WILL RUN)
+
+while condition
+do
+	command
+done
+
+until condition
+do
+	command
+done
+
+for i in 'seq 15' (counts to 15 from 1 by 1)
+	do	
+		command(i)
+	done 
+	
+	
+Process management
+==========================
+ps aux (shows processes, users, cpu)
+ps ax (process id)
+top (shows processes and more info)
+free (shows memory usage)
+
+Routing
+=============================
+/etc/sysconfig/network-script/ifcfg-eth0 (contains default interface conf)
+IPADDR
+NETMASK
+NETWORK
+
+route add/delete -net network_addr netmask 255.255.0.0 gw gateway_addr
+
+account managemer
+==================
+finger user (shows info on user needs to be installed)
+/etc/passwd (shows user name password id group home directory and sh)
+/etc/shadow (contains user passwords)
+w (shows users active and their processes)
+
+user edit
+===============================
+id (gives current user ID info)
+id username (gives user info)
+last (gives info about who loggen in and when)
+useradd username (creates user)
+/etc/default/useradd
+/etc/login.defs
+usermod (use to change users)
+userdel (deletes users)
+groups defined in /etc/group
+groupadd OPTION GROUPNAME
+groupmod OPTIONS groupname (add users)
+groups username
+
+permissions
+=======================
+d at start means direction
+
+rwx (3 groups: 1st is user, 2nd is group, 3 is everyone else on the system)
+done in octets ie drwxrwxrwx = 777
+r = 4 w = 2 x = 1
+chmod 644 filename (changes permsiions)
+chmod ugo+w filename (adds w to users groups and others)
+chmod u-r filename (removes read from user)
+chown username.group filename (changes ownership+group of file)
+
+symbolic links
+========================
+ln -s file.txt file_link.txt (links file to file_link)
+symbolic link to avoid long file names or buried files
+
+Special directories
+======================================
+/var contains files that change often
+/var/tmp contains folders that don't get deleted on reboot
+/tmp temp folders that get deleted on reboot
+stickybit allows only users to delete their files even if the file is 777
+tmp has 777 permisions so this is important here
+chmod o+t adds the sticky bit
+chmod 1777 adds the stickybit
+
+FILE SYSTEM
+=========================
+/etc/fstab lists partitions and file systems to be automatically mounted at boot
+/media (mounts disks in some distros)
+/var/log/dmesg logs from the kernal. Useful for boot logs before klogd or syslogd start
+/etc/inittab

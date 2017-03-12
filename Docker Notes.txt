@@ -1,0 +1,197 @@
+DOCKER NOTES
+=================================
+
+Starting DOCKER
+================
+- install using the following script:
+curl -sSL https://get.docker.com/ | sh
+systemctl enable docker
+systemctl start docker
+
+To enable none root use:
+-must be able to connect to docker.sock in /run/
+-usermod -a -G docker <user>
+
+pull docker images
+===============================
+docker pull <image name> 
+or
+docker pull <image name>:<tag> 
+docker search <keyword>
+
+start image/restart
+==========================
+docker run <image>:<tag> <application> <values>
+docker run -d <image:tag> <function such as bin/bash> (run a function in detached mode)
+docker run -d --name=<name for container> <image:tage> (names must be unique)
+docker restart <name or id> (restarts a container)
+docker start <id or name>  (starts a stopped container)
+
+
+detail on image
+=============================
+docker inspect <image>
+
+docker containers running
+=============================
+docker ps (shows running containers)
+docker ps -a (shows  all containers run including containers no longer running)
+
+information on containers running/stopped
+==============================================
+docker inspect <name or ID>
+
+connect to a container
+=======================================
+docker run -it centos:latest /bin/bash (logs into interactive mode on current terminal in bash)
+
+Stop a container
+=======================================
+docker stop <id or name> (stops a docker container)
+
+Attach to a container
+=======================================
+docker attach <conatiner name> (attach joins the container process so exitting can kill the container)
+docker exec <command> (executes something in a container without affecting process started during container instantiation)
+e.g. docker exec -it LifeCycle1 /bin/bash
+
+remove image
+========================================
+docker rmi <repositor:tag or imageid> (will error if stopped or running containers with this image exist)
+docker rmi -f <repositor:tag or imageid> (forces a remove but runnign containers will continue to run as they have the base image)
+docker rm <container id or name> (removes container completely)
+docker rm `docker ps -a -q` (removes all non running containers)
+
+
+redirect port
+==========================================
+docker run -d --name=<name> -P <image:tag>
+docker run -d --name=<name> -p 8080:80 <image:tag>
+
+docker volume
+============================================
+docker run -d --name=<name> -p <port external>:<port internal> -v <mount a host directory>:<container directory>
+
+docker container with DNS settings
+============================================
+docker run -it --dns=8.8.8.8 --dns-search="mydomain.local" --name="mycontainer3" -v /local_vol -v /home/tcox/docker/mydata:/remote_vol docker.io/ubuntu:latest /bin/bash
+
+dockerfile
+===========================================
+based off docker image
+usually named Dockerfile
+
+Format:
+
+	FROM debian:stable
+	MAINTAINER test123 <test123@test.com>
+
+	RUN apt-get update
+	RUN apt-get upgrade
+	
+	ENV MYVALUE myvalue
+	
+	EXPOSE 80 (exposes port for this image)
+	
+	CMD ["/usr/sbin.apache2ctl", "-D","FOREGROUND] (runs a comand with given flags and variables)
+(preference should be to group commands with && or || where possible)
+
+
+docker build -t <owner>/<name> . (the . says to pull from local director)
+docker build -t <owner>/<name> < <location of file> 
+
+docker logs
+==========================
+docker logs <uuid or name>
+
+
+DOCKER FILE DIRECTIVES
+====================================
+FROM needs to go first
+MAINTAINER is next
+RUN command (i.e. useradd -ms /bin/bash user)
+USER user (creates a user)
+docker exec -u 0 -it sad_jones /bin/bash (allows you to connect as root without setting a password)
+Changing USER will change all RUN commands after this point to run as if that user executed the commands
+ENV <VARIABLE> <VALUE> (system wide variable)
+CMD "function" "variable" (runs on instantiation of container i.e on first run)
+ENTRYPOINT <function> <variables> (runs at start even if something else is specified at run command)
+-P can't be used without exposed ports. -p is allowed as they require specific knowledge of the container service
+EXPOSE <port number> (exposes ports allowing for -P auto assignment)
+you can mount an image using -v /mydata (creates a volume on the container)
+connect to a host dfirectory using -v <hostdirectory>:<container directory> (you can't do this in a dockerfile)
+
+
+
+Docker Network
+====================================
+docker network ls (shows host networks)
+docker network inspect <network id> (show information about the network)
+docker network create --subnet 10.1.0.0/24 --gateway 10.1.0.1 mybridge01
+docker network rm mybridge01
+docker network create --subnet 10.2.0.0/16 --gateway 10.2.0.1 --ip-range=10.2.4.0/24 --driver=bridge --label=host4network bridge04
+docker run -it --name nettest1 --net bridge04 centos:latest /bin/bash
+docker run -it --name nettest2 --net bridge04 --ip 10.2.4.100  centos:latest /bin/bash
+
+Docker Inspect Container processes
+=========================================
+docker top <container id or name> (shows top for the instant it is run)
+docker exec -i -t frosty_wescoff  /bin/bash (allows you to attach without closign container on exit)
+docker stats <container id/name> (shows live stats of a container)
+
+Docker Container Management
+=========================================
+systemctl stop docker.service
+rm -rf *
+systemctl start docker.service
+
+Docker Ports Exposure
+==================================
+docker run -itd -p 127.0.0.1:8081:80 nginx:latest
+
+Docker Env VARIABLEs 
+==================================
+docker run -itd -p 127.0.0.1:8081:80 -e JAVA_HOME=/opt/java nginx:latest
+
+docker rename
+---------------------------------
+docker rename <old name or id> <new name>
+
+Docker events
+=============================
+docker events --since '<time such as 1h>'
+docker events (shows events as they happen)
+docker events --filter <opttions include container/event/images/labe/type/network/daemon>
+	eg docker events --filter event=attach
+
+	
+Docker Images Saving and Loading
+====================================
+docker commit practical_northcutt centos:mine (creates a new image with centos:mine)
+docker save -o centos.latest.tar centos:latest
+docker save --output centos.latest.tar centos:latest
+docker load --input centos.latest.tar
+
+	
+Docker history
+=========================
+docker history <image name>:<id>	
+docker history --quiet --no-trunc <image name>:<id>	(shows the sha key for the image)
+
+docker tag
+=========================
+docker tag <image id or name and tag> <image name>:<new tag>
+
+
+docker hub
+==================
+docker login
+docker logout
+docker push <name + tag or id>
+
+
+create a bridge for docker
+==============================
+ip link br10 type bridge
+ip addr add 10.100.10.1/23
+ip link set br10 up

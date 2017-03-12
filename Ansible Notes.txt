@@ -1,0 +1,981 @@
+Ansible Notes
+========================
+yaml inline
+{<key>:<value>,<key>:<value>}
+YAML can detect data types but you can specify with !!<type>
+ie. a: !!float 123
+can detect type by contect such as yes and no in a string are converted to sting and not bool
+
+ansible doc
+----------------
+man ansible-doc
+ansible-doc -l (shows modules we can get documentation on)
+ansible-doc <module name> (shows info on module)
+ = in module field means required field
+
+ansible install
+----------------------
+need to create a user for ansible ie 
+	adduser test
+	passwd test
+mkdir playbooks
+chown test:test playbooks
+ssh-keygen (on all servers)
+ssh-copy-id (to all servers using both IP and host name)
+
+yum install -y epel-release
+yum update repolist
+yum update
+yum install -y ansible
+
+ansible python requirements
+---------------------------
+sudo yum list installed | grep python
+or
+whereis python
+or 
+which python
+
+ansible configuration files
+----------------------------
+/etc/ansible/ansible.cfg (has the majority of configuration)
+/etc/ansible/hosts
+ example:	
+	[local]
+	localhost
+	
+	[apacheweb]
+	jkieltyka2.mylabserver.com
+	
+	[appserver]
+	jkieltyka5.mylabserver.com
+
+confirm host set up
+--------------------
+ansible <groupname> -m ping
+ansible all -m ping
+ansible --list-hosts all
+
+override host location
+----------------------
+ansible <groupname> -i hosts -m ping (will use host file in home dir)
+
+override default ansible.cfg
+-----------------------------
+cp ansible to local directory
+If required set ANSIBLE_CONFIG to required path using export command
+
+roles path
+---------------------------
+can be defined in the ansible.cfg file
+	i.e roles_path = /home/test/playbooks/Roles/roles:/etc/ansible/roles
+	
+run a playbook
+--------------------
+ansible-playbook <playbook>.yml
+
+list facts about setup
+-----------------------
+ansible all -m setup (lists facts about all ansible hosts)
+ansible local -m setup (list facts about local setup)
+ansible local -m setup -a 'filter=*ipv4*'
+ansible local -m setup --tree /tmp/facts
+
+
+Configure Sudo Ansible User
+---------------------------
+sudo visudo
+set:
+	test    ALL=(ALL)       NOPASSWD:ALL
+turn off ask_sudo_pass in ansible.cfg to avoid entering sudo password for testing
+
+ansible command line
+---------------------
+ansible apacheweb -s -m shell -a 'yum list installed | grep python'
+ansible all -s -m shell -a 'yum install -y telnet'
+
+common values to checl
+------------------------
+architecture = ansible apacheweb -m setup -a 'filter=ans*arch*'
+distribution = ansible apacheweb -m setup -a 'filter=ans*dist*'
+ ansible apacheweb -m setup -a 'filter=ans*inter*' (interfaces)
+ ansible apacheweb -m setup -a 'filter=ans*domain*' (domain name)
+ ansible apacheweb -m setup -a 'filter=ans*kern*' (kernal)
+ ansible apacheweb -m setup -a 'filter=ans*virt*' (virtualization check)
+ 
+Create Playbooks
+---------------
+example command:
+ansible apacheweb -s -m yum -a 'pkg=lynx state=installed update_cache=true'
+
+playbook version (appserver.yml)
+	- hosts: appserver
+	  tasks:
+	  - name: Install Lynx on App Servers
+		yum: pkg=lynx state=installed update_cache=true
+
+run by using:
+	ansible-playbook -s appserver.yml
+
+variables
+---------------
+define variables in playbooks at the top
+
+	- hosts: appserver
+	  vars:
+		control_server: test1.test.com
+		web_root: /var/www/html
+	  tasks:
+	  - name: Install Lynx on App Servers
+		yum: pkg=lynx state=installed update_cache=true
+
+can include using file with vars:
+
+	- hosts: appserver
+	  vars_files:
+	  - vars.yml
+	  tasks:
+	  - name: Install Lynx on App Servers
+		yum: pkg=lynx state=installed update_cache=true
+
+var file:
+	control_server: test1.test.com
+	
+Target Section
+----------------
+--- # My First YAML Playbook for Ansible
+- hosts: apacheweb
+  user: test
+  sudo: yes
+  connection: ssh
+  gather_facts: no
+  
+Variable section
+-------------------- 
+can create variable using files, list or prompt
+--- # My First YAML Playbook for Ansible
+- hosts: apacheweb
+  user: test
+  sudo: yes
+  connection: ssh
+  gather_facts: no
+  vars:
+    playbook_version: 0.1b
+  vars_files:
+    - conf/copyright.yml
+    - conf/webdefaults.yml
+  vars_prompt:
+    - name: web_domain
+      prompt: Web Domain
+
+Example File:
+	---
+	apache_version: 2.6
+	apache_mod_req: mod_ssl
+
+tasks section
+--------------
+add a section for tasks. Best practice to make names for specific commands:
+	--- # My First YAML Playbook for Ansible
+	- hosts: apacheweb
+	  user: test
+	  sudo: yes
+	  connection: ssh
+	  gather_facts: no
+	  vars:
+		playbook_version: 0.1b
+	  vars_files:
+	   - conf/copyright.yml
+	   - conf/webdefaults.yml
+	  vars_prompt:
+		- name: web_domain
+		  prompt: Web Domain
+	  tasks:
+		- name: Install Lynx Web Browser
+		  action: yum name=lynx state=installed
+		- name: Check for Telnet Client
+		  action: yum name=telnet state=absent
+		  
+Handler Section
+---------------
+notify will trigger a handler function as defined in the below playbook:
+
+	--- # My First YAML Playbook for Ansible
+	- hosts: apacheweb
+	  user: test
+	  sudo: yes
+	  connection: ssh
+	  gather_facts: no
+	  vars:
+		playbook_version: 0.1b
+	  vars_files:
+	   - conf/copyright.yml
+	   - conf/webdefaults.yml
+	  vars_prompt:
+		- name: web_domain
+		  prompt: Web Domain
+	  tasks:
+		- name: Install Apache Webserver
+		  action: yum name=httpd state=installed
+		  notify: Restart HTTPD
+	  handlers:
+		- name: Restart HTTPD
+		  action: service name=httpd state=restarted
+
+handlers shouldn't need to be run on every play when it is run.
+
+outlines
+----------------
+create a txt file to outline what your playbook needs to do and order.
+ansible-playbook appserver.yml --check (will say if playbook will run)
+
+Asynchronous Polling
+-----------------------
+maximum of 5 forks per ansible instance
+
+define a maximum time for completion and a poll interval
+ie:
+  tasks:
+    - name: Install Apache Webserver
+      action: yum name=httpd state=installed
+      async: 300
+      poll: 3
+      notify: Restart HTTPD
+
+variable substitution
+---------------------
+we can use variable in conf files or from prompts
+	example:
+	
+  vars_prompt:
+    - name: pkg_name
+      prompt: install which package
+  tasks:
+	- name: Install Lynx Web Browser
+      action: yum name={{ pkg_name }} state=installed
+
+lookup value
+------------------------
+- debug: msg="{{ lookup('csvfile','test file=lookup.csv delimiter=, default=NOTMATH') }}"
+this looks up the next column in lookup.csv when it matches the key test.
+
+Example of looking up an env variable:
+	- debug: msg="{{ lookup('env','HOME') }}"
+	
+RunOnce
+------------
+run_once will run the task on the first host in the target and none of the others
+
+  tasks:
+    - name: Run the uptime command on all hosts and log it
+      raw: /usr/bin/uptime >> /home/test/uptime.log
+    - name: List the /var directory and log it
+      raw: ls -al /var >> /home/test/dir.list
+      run_once: true
+
+Local Actions
+-------------
+to set a playbook to run on the local system:
+	--- # LOCAL ACTION PLAYBOOK
+	- hosts: 127.0.0.1
+	  connection: local
+	  tasks:
+	   - name: Install telnet client
+		 yum: pkg=telnet state=latest
+
+
+Loops
+------------
+with_items allows a command to substitute variable with vakues defined 
+  in this area
+  
+	--- # LOOP PLAYBOOK EXAMPLE
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  tasks:
+		- name: Add a list of users
+		  user: name={{ item }} state=present
+		  with_items:
+			- user1
+			- user2
+			- user3
+
+conditionals
+------------
+Can use when command to run when certain tests are true
+
+	--- #THIS IS A WHEN PLAYBOOK EXAMPLE
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  vars:
+		playbook_type: conditionalexample
+	  vars_files:
+		- conf/copyright.yml
+		- conf/webdefaults.yml
+	  tasks:
+		- name: Install Apache Appropriate to the Distributrion Type
+		  command: agpt-get -y install apache2
+		  when: ansible_os_family == "Debian"
+		- name: Install Apache Appropriate to the Distributrion Type (RHEL/CentOS)
+		  command: yum -y install httpd
+		  when: ansible_os_family == "RedHat"
+
+until
+------------
+until will continue to run commands until the required result is achieved
+delays (in seconds) and retry attempts can be used to prevent endless execution
+example:
+	--- # UNTIL EXAMPLE
+	- hosts: apacheweb
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  user: test
+	  gather_facts: no
+	  tasks:
+		- name: Installing Apache Webserver
+		  yum: pkg=httpd state=latest
+		- name: Verify Service Status
+		  shell: systemctl status httpd
+		  register: result
+		  until: result.stdout.find("active (running)") != -1
+		  retries: 5
+		  delay: 5
+		- debug: var=result
+
+vault
+------------
+allows encryption of secure details that should not be openly readable
+
+ansible-vault create secure.yml (creates a file with aes256 encryption)
+ansible-vault edit secure.yml
+ansible-vault rekey secure.yml (allows encryption password to be changed)
+ansible-vault decrypt secure.yml (decrypts account)
+ansible-vault encrypt secure.yml accounts.yml (encrypts accounts)
+ansible-playbook waitfor.yml --ask-vault-password
+ansible-playbook waitfor.yml --vault-password-file=somefile.txt (don't git commit this file)
+
+Prompt Interactive Playbook
+----------------------------
+prompt section can be changed to have a default value.
+	--- # LOOP PLAYBOOK EXAMPLE
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  vars:
+		playbook_version: 0.1b
+	  vars_prompt:
+		- name: pkgtoinstall
+		  prompt: Install Which Package?
+		  default: telnet
+		  private: no
+	  tasks:
+		- name: Install the indictated packed
+		  yum: pkg={{ pkgtoinstall }} state=latest
+
+Include Statements
+------------------
+create play yml file to be included in a play book
+eg: package.yml  
+	- name: Install the telnet client
+	  yum: pkg=telnet state=latest
+	- name: Install the lynx web browser
+	  yum: pkg=lynx state=latest
+
+Main playbook:
+	--- # FULL INCLUDE TASKS EXAMPLE
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  tasks:
+		- include: plays/package.yml
+		- name: Verify telnet is installed
+		  raw: yum list installed| grep telnet > /home/test/pkgs.log
+
+Tags
+--------------
+you can install tags in a playbook so that specific tasks can be run or skipped
+i.e.
+	--- # TAG FUNCTIONALITY EXAMPLE
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  tasks:
+		- name: Install the telnet and lynx packages
+		  yum: pkg={{ item }} state=latest
+		  with_items:
+			- telnet
+			- lynx
+		  tags:
+			- packages
+		- name: Verify that telnet was installed
+		  raw: yum list installed | grep telnet > /home/test/pkg.log
+		  tags:
+		   - verification
+
+ansible-playbook tags.yml --skip-tags "verification"
+ansible-playbook tags.yml --tags "verification"
+
+If always tag is set, it will always run unless specifically skipped  
+
+error handling
+---------------
+we can set ignore_errors to avoid playbook failure if a single task fails/
+i.e
+	--- # ERROR HANDLING EXAMPLE
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  tasks:
+		- name: Execute a command that will fail
+		  command: /bin/false
+		  ignore_errors: yes
+		- name: Install telnet
+		  yum: pkg=telnet state=latest
+		  
+start at
+--------------
+we can start a playbook at a specific task using the following
+ansible-playbook startat.yml --start-at-task='Install Lynx'
+ansible-playbook startat.yml --step (allows us to select if a task should be run)
+
+passing in vars at the cmd line
+---------------------------------
+we can pass in variabls at the command line using the following:
+ ansible-playbook fromcommandline.yml --extra-vars "hosts=apacheweb user=test pkg=telnet"
+
+example playbook:
+	--- # VARIABLES AT A COMMAND LINE PASSING EXAMPLE
+	- hosts: '{{ hosts }}'
+	  user: '{{ user }}'
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  tasks:
+	  - name: Install some software
+		yum: pkg={{ pkg }} state=latest
+
+jinja2 templates
+----------------
+to use a template pass required vars
+
+tasks:
+  - name: Install config for the system
+    template: src=test.conf.j2 dest=/home/test/test.conf owner=test group=test mode=750
+	
+localaction
+------------	
+if we want to run a function locally instead of the targer we can use the local_action in a task
+i.e.
+	--- # LOCACLACTION DEMO
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  gather_facts: no
+	  tasks:
+	  - name: Ping application server before we run install
+		local_action: command ping -c 4 172.31.36.238
+	  - name: install lynx on remote server
+		yum: pkg=lynx state=latest
+
+Deligate to
+--------------
+tasks:
+	  - name: Ping application server before we run install
+		local_action: command ping -c 4 172.31.36.238
+		delegate_to: jkieltyka5
+	
+
+	
+ANSIBLE MODULES
+==================
+setup
+-------------
+setup returns facts about the target/s 
+filtering is useful to find relevant info. Most data fields start with ansible
+e.g. ansible apacheweb -m setup -a "filter=ansible_arch*"
+
+file
+--------------
+can be used to pull info about files on a remote server
+e.g. ansible apacheweb -m file -a'path=/etc/fstab'
+
+can be used to create a directory
+e.g. ansible apachweb -s -m file -a 'path=/tmp/etc state=directory mode=0700 owner=root'
+
+copy
+------------------
+copys a file
+ansible apacheweb -s -m copy -a 'src=/etc/fstab dest=/tmp/etc/fstab'
+
+command
+----------------
+can be user to execute raw commands such as deleting files.
+e.g. ansible apacheweb -s -m command -a 'rm -rf /tmp/etc/fstab remove=/tmp/etc'
+
+pause
+-----------------
+pauses execution of a playbook until user input
+e.g.
+    - name: pausing
+      pause:
+        prompt: "Make sure the installation is complete.."
+
+can replace prompt with time i.e. seconds: 3
+
+waitfor
+-------------------
+waits for a certain condition to be true
+i.e.
+    - name: Waiting for 8080 to listen
+      wait_for:
+        port: 8080
+        state: started
+
+yum
+----------------
+states: installed (installs if not there), 
+ present (checks if exists)
+ absent (removes)
+ latest (updates to latest version)
+ 
+apt
+-----------------
+similiar to yum 
+additional options:
+	update_cache=true
+	upgrade=dist 
+
+	
+service
+-----------------
+service needs gather facts to know how to start the service on different host types
+  - name: start the webserver
+    service: name=httpd state=started
+  - name: Enable HTTPD after reboot
+    service: name=httpd enabled=yes
+
+copy
+----------------
+Allows copying of files from one system to another
+
+ - name: Copy from files directory test file
+    action: copy src=files/test1.txt dest=/home/test/test1.txt
+  - name: Copy from files directory test file
+    action: copy src=files/test2.txt dest=/home/test/test2.txt mode=0644
+  - name: Copy from files directory test file
+    action: copy src=files/test2.txt dest=/home/test/test2.txt owner=test group=test mode=0644
+  - name: Copy from files directory test file
+    action: copy src=files/test2.txt dest=/home/test/test2.txt owner=test group=test mode=0644 backup=yes
+
+backup option will create a backup if overriding a file
+
+command
+---------------
+command allows you to do actions at the command line
+  - name: Check for python packages
+    command: /home/test/testing/test.sh
+    args:
+      chdir: /home/test/testing
+
+cron
+--------------
+can be used to add or remove cron jobs
+
+adding:
+ e.g. 
+  - name: Add a Cron Job to the test user
+    cron: name="list files" minute="0" hour="1"  job="ls -al > /home/test/crontest.log"
+ 
+remove:
+ e.g.
+    - name: Add a Cron Job to the test user
+    cron: name="list files" state=absent
+
+debug
+--------------
+adds the ability to give output of values of text
+	  - name: Install the webserver
+		yum: pkg=httpd state=installed
+	  - debug: msg="Equivilant of sudo yum install httpd"
+	  - name: how long has the server been up
+		shell: /usr/bin/uptime
+		register: result
+	  - debug: var=result
+
+fetch
+----------------
+gathers files from remote systems and copies to current server
+
+  - name: copy remote host file to control server
+    fetch: src=/etc/hosts dest=/home/test
+  tasks:
+  - name: copy remote host file to control server
+    fetch: src=/etc/hosts dest=/home/test/prefix-{{ ansible_hostname }} flat=yes
+
+AT
+------------------
+runs a command at a time in the future
+    - name: Run a command at
+      at: command="ls -al /var/log > /home/test/at.log" count=1 units="minutes"
+	
+remove an at command:
+  - name: Run a command at
+    at: command="ls /var/log > /home/test/at1.log" state=absent
+
+can add a flag for unique command
+i.e.
+  at: command="ls /var/log > /home/test/at1.log" state=absent unique=true
+
+DNF
+---------------------
+dnf is a new package manager for centos and RHEL 7
+ - name: install httpd
+   dnf: name=httpd state=latest
+
+to do an update of all package
+ - name: install httpd
+   dnf: name=* state=latest
+   
+to install a group
+ - name: install httpd
+   dnf: name="@Development tools" state=latest
+   
+Apache2_module
+-----------------------
+only works on ubuntu systems
+
+SetFact
+---------------------
+Sets a fact (none ansible collected fact) that is persistent after a playbook is run
+   - name: local variable display
+     set_fact:
+       singlefact: SOMETHING
+
+Stat
+----------------------
+can gather stat about a particular file/directory 
+
+e.g.
+   - name: Does a file/directory exist in the ppath
+     stat: path=/home/test/abc
+     register: p
+   - debug: msg="the path exists and is a directory"
+     when: p.stat.isdir is defined and p.stat.isdir
+
+Script
+----------------------
+runs a local script on a remote system
+ tasks:
+   - name: Run a script
+     script: /usr/bin/uptime creates=/home/test/uptime.log
+	 
+creates allows files to be created only when they don't exist
+
+shell
+----------------------
+allows a remote command to be run.
+
+e.g.
+	- name: Executing a remote command
+     shell: /usr/bin/uptime >> uptime.log
+     args:
+       chdir: logs/
+       creates: uptime.log
+
+SELinux
+------------------------
+Allows chaning the configuration of SElinux
+
+e.g. set policy
+	- name: changing SELinux configuration to permissive
+	  selinux: policy=targeted state=enforcing
+
+e.g set state (note this requires a reboot):
+   - name: changing SELinux configuration to permissive
+     selinux: state=disabled
+
+SEBoolean
+------------------------
+allows you to change a SEboolean value
+   - name: Set httpd sebool value
+     seboolean: name=httpd_anon_write state=yes
+can add persistent flag i.e persistent=yes
+
+RAW
+------------------------
+Can be used to run a command as if it is being run directly on a server
+can't pull back data
+
+   - name: Run a raw commad
+     raw: ls -al 
+
+Ping
+------------------------
+allows a server to be pinged
+   - name: Run a ping command against apacheweb
+     ping:
+
+Package
+---------------------------
+allows install of a package.
+Same as apt or yum modules.
+
+Unarchive
+--------------------------
+unarchieves a archieved files such as a tar.gz
+   - name: copy and unarchieve a file
+     unarchive: src=test.tar.gz dest=/home/test/unarchieve
+set copy=no if you don't want a file copied to your local home directory.
+
+GetURL
+---------------------------
+allows a task to pull a file from a webserver:
+    - name: get and download ini file
+      get_url: url=http://jkieltyka2.mylabserver.com/test.ini dest=/home/test/test.ini mode=0440
+
+group
+-----------------------------
+allows addition of a group
+   - name: Add a new group called newgroup
+     group: name=newGroup state=present
+
+can also add a system=yes flag and gid=<group id>
+
+mail
+------------------------------
+ability to send an email externally
+useful as a notification
+  - name: Send an email to test user indicating bild completion
+     mail:
+       host='localhost'
+       port=25
+       to="test"
+       subject="Our host is finished deploying"
+       body='System called {{ ansible_hostname }} has been successfully deployed'
+	   
+filesystem
+--------------------------
+allows you to issue commands related to the formating of a filesystem
+   - name: Format the remote data partition
+     filesystem: fstype=ext3 dev=/dev/xvdf1 opts="-cc"
+
+mount
+---------------------------
+allows mounting/unmounting of a filesystem
+   - name: Mount the remote data partition
+     mount: name=/mnt/data src=/dev/xvdf1 fstype=ext3 opts=rw state=present
+	 
+can also mount using src='LABEL or UUID'
+
+ACL
+----------------------------
+file access control system changes
+   - name: get ACL infor on the /etc/test.acl.txt remote file
+     acl: name=/etc/test.acl.txt entity=test etype=user permissions="rw" state=present
+     register: var=aclinfo
+
+git
+------------------------------
+allows cloning of external gits
+ - name: GIT clone to a remote system
+   git: repo=ssh://test@jkieltyka1/home/test/playbooks dest=/home/test/gitrepo
+   
+Template
+-------------------------------
+allows the install of template files using a Jinja2 Template
+	- name: Install the custom config file
+	  template: src=files/test.conf.j2 dest=/home/test/test.conf owner=test group=test mode=750
+
+Kernel blacklist module
+-------------------------------
+blacklist modules to allow certain programs or code to be loaded
+   
+   - name: Blacklist the DUMMY kernel module
+     kernel_blacklist: name=dummy state=absent
+	 
+absent means don't blacklist present means blacklisted
+
+
+
+ROLES
+=============================================
+Automation around include directives
+Allow search of directories for include files
+folder structure
+Roles
+-> common
+   ->files
+   ->templates
+   ->tasks
+   ->handlers
+   ->vars
+   ->defaults
+   ->meta
+-> webservers
+   ->files
+   ->templates
+   ->tasks
+   ->handlers
+   ->vars
+   ->defaults
+   ->meta
+-> appservers
+   ->files
+   ->templates
+   ->tasks
+   ->handlers
+   ->vars
+   ->defaults
+   ->meta
+   
+role based tasks
+---------------------
+create a master playbook in the top level roles file
+will run any main.yml files in the subdirectories under webservers
+	--- # Master Playbook for Webservers
+	- hosts: apacheweb
+	  user: test
+	  become: true
+	  become_method: sudo
+	  connection: ssh
+	  roles:
+	   - webservers
+
+task order - pre and post tasks
+--------------------------------
+roles always run before additonal tasks
+if a task must run first a pre-task must be defined
+if a task must occur after the role use post_task
+  pre_tasks:
+   - name: When did the ROLE start
+     raw: date > /home/test/startofrole.log
+  roles:
+   - webservers
+  post_tasks:
+   - name: When did the ROLE end
+     raw: date > /home/test/endofrole.log
+
+conditional execution
+--------------------------------
+can use the when: flag to do a conditional execution in the main.yml tasks file
+
+var substitution
+--------------------------------
+can do replacement of vars in tasks by referencing vars in vars/main.yml
+e.g.
+	- name: Install Apache Web Server (RHEL/CENOTS)
+      yum: pkg={{ redhat_apache }} state=latest
+
+handlers
+--------------------------------
+as per previous handler notes except we include this in the {hostype}/handler directory
+e.g.
+	- name: Restart HTTPD
+      service: name={{ redhat_apache }} state=restarted
+
+notification
+---------------------------------
+can be used to run plays that need to be run ONLY under a limited condition set
+
+Alternative Roles Path
+---------------------------------
+add a different path to ansible.cfg
+roles_path  /some/directory/path
+
+Conditional Include Statements
+----------------------------------
+allows roles to be selected by facts gathered,etc for conditional execution
+
+  roles:
+  - { role: redhat_webservers, when: ansible_os_family == "RedHat"}
+  - { role: debian_webservers, when: ansible_os_family == "Debian"}
+
+Waiting for events
+----------------------------
+uses wait for as above
+
+  wait_for:
+    port: 80
+    state: started
+
+Executing until
+----------------------------
+the task will retry until result is true 
+- shell: systemctl status httpd
+  register: result
+  until: result.stdout.find("active (running)") != -`
+  retries: 5
+  delay: 5
+
+Tags
+-----------------------------  
+as per previous playbook section
+
+passing in variables at cmd line
+---------------------------------
+as per normal playbook variable pass in
+i.e.
+	- hosts: '{{ hosts }}'
+
+DelegateTo
+---------------------
+Best practice is to do in the pre or post task in the master playbook
+
+LocalAction
+--------------------
+Same as above
+
+
+Command LINE
+===========================
+can run arbitrary commands using:
+ansible <group> -u <user> -a "<some command>"
+
+running a command with an extra flag of -t <dirname> will create results directory with a file per host
+
+
+ANSIBLE 2.0
+===========================================================
+Galaxy
+----------
+contains roles written by the community
+galaxy roles have meta data about the roles
+
+User Privilage Changes
+----------------------
+remote_user: test
+become: true
+become_method: sudo
+
+Find Module
+-----------------------
+find: paths="/etc" patterns="fstab" (will find something with this pattern)
+
+Package Module
+-----------------------
+package: name=telnet state=latest (will install regardless of distro)
+
+

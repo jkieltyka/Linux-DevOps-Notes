@@ -1,0 +1,104 @@
+Jenkins Notes
+========================
+Best Practices
+--------------
+MUST DOs
+- Back up jenkins (at least jenkins home for job security)
+- use file finperprinting to manage dependencies
+- Build from Source Control whenever possible
+- Intergrate jenkins with issue management
+- Take advantage of automated testing
+- Layout Jenkins install on the disk with most space
+- Before deleting a job take an archive copy
+- Resist the temptation to have a build job for multiple environment
+- Email results to all developers
+- Use Jenkins for common maintenance and clean up task
+- Tag, merge or baseline code after a successful build
+- Keep Jenkins up to date
+- Keep your plugins up to date
+- Don't build on MASTER except on small deployments
+
+Setup Jenkins:
+-----------------
+which java (needs java and port 8080)
+telnet localhost 8080 to check if 8080 is in use
+nmap -sT -O localhost
+netstat -anp | grep 8080
+
+Install JDK 8 
+-------------
+cd ~
+wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u60-b27/jdk-8u60-linux-x64.rpm"
+rpm -Uvh jdk-8u60-linux-x64.rpm
+which java
+alternatives --install /usr/bin/java java /usr/java/latest/bin/java 200000
+alternatives --install /usr/bin/javac javac /usr/java/latest/bin/javac 200000
+alternatives --install /usr/bin/jar jar /usr/java/latest/bin/jar 200000
+alternatives --config java
+vim /etc/rc.d/rc.local 
+ add export JAVA_HOME="/usr/java/latest"
+
+Install Jenkins
+----------------
+yum install -y wget
+wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
+rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+yum install -y jenkins 
+
+Make Jenkins a service
+----------------------
+systemctl enable jenkins.service
+systemctl restart jenkins.service
+
+Config Locations
+-----------------------
+/etc/var/jenkins/jobs (containts job files)
+/etc/var/jenkins/userContent/ (serves a webpage for documentation)
+/var/cache/jenkins/war (war file that contains apache tomcat config for jenkins)
+
+
+Secure Jenkins:
+-------------------------
+change default password
+disable sign up of users
+make sure global security is set to logged in users can do anything or matrix mode
+create additional users with restrictions as required
+
+Credentials
+-------------------------
+go to /etc/passwd change jenkins default shell from b/bin/false to /bin/bash
+vi /etc/sudoers
+	add: jenkins ALL=(ALL)       NOPASSWD:ALL (under similiar definition for root)
+ssh-keygen from user Jenkins (i.e run a su jenkins -)
+add credentials from credentials>system>global credentials
+ssh-copy-id jenkins@localhost
+
+setup slave by adding jenkins user and changing /etc/sudoers file
+add credentials from master to slave using ssh-copy command
+
+Backup Jenkins
+---------------------
+install thinbackup and backup plan plugins
+create backup directory
+mkdir /jenkins_backup
+chown jenkins /jenkins_backup 
+backup plugin backs up configuration, plugins AND job configuration and files
+thin backup only backs up jenkins base config and plugins.
+
+Create a slave
+--------------------
+create an ssh-key on the host
+ssh-keygen
+add node at jenkins > nodes
+select master and change settins to only run jobs when label matches this node
+add node as required
+
+Creating a job
+------------------------
+click create new item
+
+Parameterized Builds
+------------------------
+add parameter with a type
+in the shell commands or build steps include the parameter name where it is required
+

@@ -1,0 +1,57 @@
+RHCSA
+==================================================
+
+Basic Commands
+========
+scp <file> <user@remoteserve>:<location sucha s ~/>
+sftp user@jkieltyka1.mylabserver.com
+	put <file> (to upload file to remote)
+	get <file> (gets file from remote machines)
+	
+systemctl get-default (shows the multiuser.target)
+history (view bash histor commands)
+
+Login shell
+------------------------------
+bash_profile is executed when we log in
+we are NOT in a login shell when we use su <user>
+using su - or su --login will enter into a login shell
+
+Non Login shell (interactive)
+------------------------------------
+bash_rc loaded on login into this shell type
+
+Global shell configuration
+----------------------------
+/etc/profile
+
+Tar
+----------------------------
+creates archieves
+tar -cvf myarchive.tar directory1/ hello1 hello2 (c means create v verbose f using the file name specified)
+tar -tf <tar> (shows whats in the tar)
+tar -xvf myarchive1.tar (extracts verbosely)
+
+Compression
+----------------------------
+gzip (zips using gz)
+gunzip (un gzips)
+gzip -d (same as gunzip)
+tar -cvzf myarchive1.tar.gz directory1/ (creates a tar.gz not the extra z flag)
+(use z for gzip j for bzip)
+gzip -l (shows compression info about a gzip file)
+
+Decompresion
+------------------------------------------
+tar -xzvf myarchive1.tar.gz (extracts verbosely from gzip but will override files with the same name)
+tar -dvf myarchive.tar.gz (compares working directory to tar.gz and says the differences)
+
+
+Star
+---------------------
+helps with archieving and extraction (not installed by default)
+star -c -f=myarchieve.tar hello1 hello2 directory1/ (creates a tar archieve)
+star -t -f=myarchieve.tar (lists a tar archieves contents)
+star -x -f=myarchieve.tar (extracts a tar archieve with warnings of newer files)
+star -cz -f=myarchieve.tar hello1 hello2 directory1/ (creates a tar.gz archieve)
+

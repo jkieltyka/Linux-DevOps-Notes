@@ -1,0 +1,390 @@
+Open Stack Notes
+===================
+compute nova
+object storage swift
+block storage cinder
+networking neutron
+dasboard horizon
+identity service keystone
+image service glance
+
+==================
+keystone token will include a catalog that will tell you which services you can use
+RabbitMQ: services listen on channels they are interested in 
+
+NOVA COMPUTE
+=====================================================================
+nova-api turns APIs into running VMs
+nova-compute process is a worker daemon for creating/terminating VMs via hypervisor APIs
+nova-volume manages the creation, attaching and detaching of Z volumes to compute instances
+nova schedule figures out where a VM should run (physical host)
+queue passes messages between the daemons
+SQL stores info about the VMs
+
+verify nova
+---------------------------------------
+nova service-list (shows nova services and status)
+nova endpoints (shows api endpoints which can be tested)
+nova image-list (lists images: in future will need to use glance image-list)
+
+nova keypairs
+------------------------------------
+nova keypair-list (shows keypairs)
+nova keypair-add keypair > keypair.pem (creates a keypair named keypair)
+
+manage flavors
+------------------------------------
+nova flavor-list (shows flavors)
+nova flavor-create --is-public true m1.extra_tiny auto 256 0 1 --rxtx-factor 1.0 (auto = uuid 256 mb ram 0 root disk 1 vcpu)
+nova flavor-access-add flavor_name tenant_id (add a flavor to a tenant)
+nova flavor-delete <flavor_id>
+
+Setting Quotas (must be root/admin)
+------------------------------------
+nova quota-defaults (shows current quotas such as cores, etc)
+nova quota-class-update --instances 20 default (changes instance class to have 20 by default)
+nova quota-show --tenant <tenant_id> 
+nova quota-update --instances 15 <tenant_id>
+nova quota-show --user <user_id> --tenant <tenant_id> (shows users quotas for a tenant)
+nova quota-class-update --user <user_id> --instances 20 default (changes instance class to have 20 by default)
+nova absolute-limits --tenant <tenant_name>
+
+manage project security groups
+-------------------------------------
+group rules are project specific
+nova secgroup-list (shows security groups)
+nova secgroup-list-rules default (can replace default with another group)
+nova secgroup-create <group> "<comment>"
+nova secgroup-add-rule webservers <protocol i.e tcp> <port start> <port finish> <ip prefix i.e. 0.0.0.0/0>
+
+launching instances
+-------------------------------------
+nova boot --flavor <flavor name> --image <image id or name> <instance_name> (boots a VM)
+nova list (shows vms running)
+
+security groups to instance
+-------------------------------------
+nova add-secgroup <instance name> <security group> (adds instance to a sec group)
+nova show <instance> (shows details of an instance)
+nova remove-secgroup <instance> <sec group> (deletes a sec group)
+
+neutron security-group-list
+neutron security-group-rule-list
+neutron security-group-rule-create <secgroup> --protocol --port
+neutron security-group-delete <security group name>
+configuring float ip addresses to instances
+-------------------------------------------
+nova remove-floating-ip <instance-name> <floating IP> (removes a floating IP address)
+nova add-floating-ip <instance-name> <floating-ip> (adds a floating ip to an instance)
+nova floating-ip-list (lists floating IP addresses )
+nova floating-ip-create (allocates a floating IP)
+
+access an instance using a keypair
+-------------------------------------------
+vi demo.rc (using openstack RC file pasted in here)
+source demo.rc (associates the demo file)
+nova keypair-add key1 > key1.pm (creates a keypair for SSH access)
+nova keypair-list (lists keypairs)
+chmod 600 key1.pem (permissions required for use)
+nova boot --flavor <flavor name> --image <image id or name> --security-group <group> \
+--key-name <key name> <instance_name> (boots a VM)
+ssh -i key1.pem cirros@<ipaddress>
+
+managing state of an instance
+--------------------------------------------------
+nova pause <instance name> (freezes VM in it's last state)
+nova unpause <instance name> (resumes frozen VM)
+nova suspend <instance name> (suspends VM from hypervisor)
+nova resume <instance name> (resumes VM in suspended state)
+nova shelve <instance name> (removes instance from hypervisor i.e shutdown but saves instance information for later unshelve)
+nova unshelve <instance name>
+
+terminate instance
+---------------------------------------------------
+nova delete <instance name>
+
+manage instance snapshots
+---------------------------------------------------
+snapshots make a new image based on current settings of an image 
+nova image-create <instance> <snapshot-instance-name> (creates a snapshot image)
+
+
+SWIFT STORAGE
+=======================================================================
+swift proxy (accepts incoming requests via api or http) serves files or container lists to theuser
+account manages accounts define in object storage
+container maps mapping of contains 
+object manages actual objects
+
+swift list (lists containers)
+swift upload <container> <file name>
+swift stat -v <container name> <file name> (gives us info about the file such as auth token, url, etc.)
+curl -X POST -H 'X-Auth-Token: <token>' -H 'X-Delete-After: <epoch time ie 84600 for 24 hrs>' <public url for the file>
+
+
+
+GLANCE IMAGES
+======================================================================
+discovery registration and delivery storage for disk and server images.
+can also do snapshots
+
+glance API accepts api calls for rgistration,deliver and discovery
+registry includes data about size, metadata, etc.
+database. storage image metadatastorage repository (stores images usually in swift)
+
+glance image-create --progress --name Ubuntu1404 --file trusty-server-cloudimg-amd64-disk1.img --disk-format qcow2 --container-format bare (creates image and stores it)
+glance image-list (lists image)
+glance image-delete <image-uuid>
+
+CINDER BLOCK STORAGE
+=======================================================================
+providespersistent block level store for compute instances
+manages creation attaching and detaching of block devices
+
+primarily uses drivers for block storage
+volumes: raw block storage for presistent data. requires OS level formating
+snapshots: copy of a volume from a point of time READ ONLY
+backup: fully copy of a volume. Stored in a backup store Seph/SWIFT
+
+cinder-api:
+cinder volume:
+cinder database:
+cinder scheduler
+
+cinder list (provides a list of block storage)
+cinder show <volume uuid>
+cinder availability-zone-list (shows availibity zones)
+cinder volume-create <size in gb> --display-name <name> --image-id <image uuid> --availability-zone <zone>
+nova volume-attach <vol uuid> <instance uuid> <location on vm i.e /dev/vdb>
+
+
+mount (shows volumes)
+sudo fdisk -l (shows volumes with attached status)
+sudo fdisk /dev/vdb
+webservers
+sudo mount /dev/vdb /mnt
+sudo umount /mnt
+
+
+cinder create --display-name <volume name> <size in Gb>
+cinder snapshot-create --force True --display-name <name> <volume-id>
+cinder backup-create 9f5127d8-b2a8-4df2-a5db-090db1931ef5
+cinder backup-list
+cinder backup-restore <backup uuid>
+
+cinder type-create LUKS (creates a LUKS encrypted storage type)
+cinder encryption-type-create --cipher <cipher set> --key_size <key size bits> --control_location <location frontend/backend> \ 
+	LUKS nova.volume.encryptors.luks.LuksEncryptor
+cinder create --display-name encryptedvolume --volume-type LUKS 1
+
+NEUTRON NETWORKING
+==========================================================================
+creates networks and attaches server interfaces
+routers vswitch and SDN controllers
+Ports refer to virtual switch connections
+On subnets they define mac and IP addresses
+Neutron defines isolated lay 2 networks using linux bridges. Can use openvswitch
+Routers act as the GWs
+
+floating IPs are used to NAT private IPs to the internet
+can do loadbalancing with HA proxy
+
+quantum-server:accepts api request and routes to plugin
+quantum-agents: perform actions such as creating ports networks, subents
+quantum-plugins: perform actions such as creating ports networks, subents
+quantum-database:stores info on the network configuration
+queue:routes info between other services
+
+(AS ADMIN)
+neutron ext-list (shows all loaded extentions)
+neutron agent-list (lists all agents running in neutron)
+
+(As DEMO)
+neutron net-create <name> (creates a network with this name)
+neutron subnet-create --name <subnet-Name> <network-name> <IP Subnet CIDR ie. 10.0.0.0/24>
+
+(boot instance on this network)
+nova boot --flavor <flavor name> --image <id> --nic net-id=<network-id> <vm-name>
+
+project routers
+------------------------------------------------
+neutron router-list (prints a list of routers)
+neutron router-interface-add <router-name> <subnet-name> (adds an interface to a router from a subnet)
+
+Neutron Quotas
+-------------------------------------------------
+neutron quota-show --tenant-id <tenant-id>
+neutron quota-update --tenant_id <tenant-id>  --<field> <value> --<field2> <value>
+
+
+
+HORIZON DASHBOARD
+=========================================================
+Dateless and stateless dashboard
+Stores only session information
+
+Developers can use the OpenStack API or the EC2 Compatibility APIs
+
+
+
+KEYSTONE IDENTITY SERVICE
+=========================================================
+-authenticates users and provides tokens.
+-authorise users via role based access (RBAC)
+-provide a catalog of services
+-Create and store policies that services can use to authorise user requests
+
+4 primary sets of functionality:
+-tenants and projects
+-authentication
+-authorization
+-tokens
+
+keystone components:
+-API server
+-token backend
+-catalog backend
+-policy backend
+-identity backend
+
+roles can be edited by editing the policy.json file
+
+Project commands
+---------------------
+openstack project list
+openstack project create --desciption "value" project-name
+openstack project set <uuid> --disable
+openstack project set <uuid> --enable
+openstack project set <uuid> --name test
+openstack project show <uuid>
+openstack project delete <uuid>
+
+user commands
+---------------------
+openstack user list
+openstack user create --project <project name> --password <user password> <new-username>
+openstack user set new-user --disable
+openstack user show <name/uuid>
+openstack user set new-user --enable
+openstack user set new-user --email test@test.com
+openstack user delete new-user
+
+role commands
+-----------------------
+openstack role list
+openstack role create new-role
+(associating a role requires a user associated with a project/tenant)
+openstack role add --user new-user --project <uuid> --role <uuid>
+openstack role list --user new-user --project <uuid>
+openstack role show <uuid>
+openstack role delete <role_name>
+
+service list
+-------------------------
+openstack service list
+openstack endpoint list
+openstack endpoint show <servicename>
+openstack service create --name test --description "test description" TYPE_TEST
+openstack endpoint create --region RegionOne TYPE_TEST --publurl http://x.x.x.x:yyyy --internalurl http://x.x.x.x:yyyy --adminurl http://x.x.x.x:yyyy
+openstack endpoint delete <id>
+openstack service delete <id>
+
+Policy.json
+{
+"alias 1":"definition 1",
+"alias 2":"definition 2",
+...
+"target 1":"rule 1"
+"target 2":"rule 2"
+...
+}
+
+targets are apis: service.api
+rules determine if api is allowed: (always true : " ",[] or "@", Always false:"!")
+
+verify keystone
+--------------------------------
+unset OS_TOKEN OS_URL (unsets credential file variables)
+openstack --os-auth-url http://<instance_ip>:35357/v3 --os-project-domain-id default --os-user-domain-id default \
+	--os-project-name admin --os-username admin --os-auth-type password token issue
+
+openstack --os-auth-url http://<instance_ip>:35357/v3 --os-project-domain-id default --os-user-domain-id default \
+	--os-project-name admin --os-username admin --os-auth-type password project list
+
+port 35357 admin api access
+port 5000 non-admin api access	
+
+
+
+Keystone commands
+--------------------------
+keystone role-add <role>
+keystone role-delete <role>
+keystone role-list
+
+Ceilometer - Monitoring
+========================================================
+- Can be used to collect data for tasks suchs as metering (no billing or rating)
+- Components:
+	- Polling Agent
+	- Notification Agent
+	- Collector Daemon
+	- API
+	- Alarming
+
+openstack user list (look for ceilometer)
+openstack user show ceilometer
+keystone service-get ceilometer
+keystone catalog --service meterign
+openstack-service status ceilometer
+systemctl restart <name from openstack service output>
+
+/etc/ceilometer/pipeline.yaml
+ceilometer meter-list (shows all the meters being used by ceilometer)
+ceilometer alarm-threshold-create -name <name> description <value> --meter-name <name> \
+	--threshold <value> --comparison-operator <gt,lt,equal,etc.> --statistic ,etc.
+ceilometer alarm-list (shows alarms and evaluation state)
+ceilometer alarm-update --threshold <value> -a <alarm-id>
+ceilometer alarm-history -a <Alarm_id>
+ceilometer alarm-update --enabled False -a <alarm-id> (disables an alarm)
+ceilometer alarm-delete -a <alarm-id> (deletes an alarm)
+
+Heat Orchestration
+=====================================================
+-Heat template defines what infrastructure is required.
+-Heat uses an API
+
+Heat components:
+	-heat-api
+	-heat-api-cfn (AWS cloud formation api)
+	-Heat-engine (main orchestration functionality)
+	
+Heat Templates:
+	Templates are YAML or JSON- called HOT
+	heat_template_version:
+	description:
+	resources:
+
+verify heat
+---------------------
+grep <public_ip> /etc/heat/heat.conf
+openstack-service status heat (look for openstack heat-api and heat-engine)
+openstack-service restart heat
+
+using heat
+-------------------------------------------
+heat stack-create -f <file.yml> <name of stack>
+heat stack-list (shows status of a stack creation)
+heat stack-show <stack name> (gives info about the stack)
+heat resource-list <stack name> (shows resources the stack has created)
+heat resource-show <stack-name> <resource> (specific resource information)	
+heat stack-delete <stack name> (deletes stack)
+	
+Openstack hypervisors
+========================================================
+KVM -kernal based virtual machine
+LXC - linux containers through libvert
+QEMU - quick emunlator
+UML - user mode linux
+
+
