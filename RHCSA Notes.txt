@@ -55,3 +55,5 @@ star -t -f=myarchieve.tar (lists a tar archieves contents)
 star -x -f=myarchieve.tar (extracts a tar archieve with warnings of newer files)
 star -cz -f=myarchieve.tar hello1 hello2 directory1/ (creates a tar.gz archieve)
 
+TO DO: UPDATE WITH REST OF CSA REVISION
+
